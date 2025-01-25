@@ -1,7 +1,8 @@
 let startTime = null;
 let running = false;
 let lightsOn = false;
-let times = [];
+let sequenceActive = false; // Nueva variable para controlar si la secuencia está activa
+times = [];
 let bestTime = Infinity;
 
 function sleep(ms) {
@@ -11,6 +12,7 @@ function sleep(ms) {
 async function startLightsSequence() {
     const lights = document.querySelectorAll('.light');
     lightsOn = true;
+    sequenceActive = true; // La secuencia está activa
 
     // Reset all lights before starting
     lights.forEach(light => {
@@ -22,6 +24,8 @@ async function startLightsSequence() {
     for (let i = 0; i < lights.length; i++) {
         lights[i].style.background = 'red';
         await sleep(1000);
+        // If an early click occurred, stop the sequence
+        if (!lightsOn) return;
     }
 
     // Random delay between 2 to 4 seconds
@@ -36,6 +40,7 @@ async function startLightsSequence() {
 
     running = true;
     lightsOn = false;
+    sequenceActive = false; // La secuencia deja de estar activa
     startTime = performance.now(); // High-precision start time
 }
 
@@ -54,7 +59,7 @@ function updateTable() {
 
     times.forEach((time, index) => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>${index + 1}</td><td>${time === 'False Start' ? time : time.toFixed(3)}</td>`;
+        row.innerHTML = `<td>${index + 1}</td><td>${time === 'Inicio Falso' ? time : time.toFixed(3)}</td>`;
         tableBody.appendChild(row);
     });
 
@@ -67,15 +72,14 @@ function handleReaction() {
     const lights = document.querySelectorAll('.light');
     const activeLights = Array.from(lights).filter(light => light.style.background === 'red');
 
-    if (activeLights.length > 0) {
-        // False start: Restart the light sequence
-        times.push('False Start');
+    if (activeLights.length > 0 && sequenceActive) {
+        // False start: Register "Inicio Falso" and stop the light sequence
+        times.push('Inicio Falso');
         updateTable();
 
-        // Reset lights and restart sequence
-        lightsOn = false;
+        lightsOn = false; // Stop the sequence
         running = false;
-        startLightsSequence().catch(console.error);
+        sequenceActive = false; // Detenemos la secuencia
     } else if (running) {
         // Calculate reaction time accurately
         const endTime = performance.now();
@@ -91,8 +95,8 @@ function handleReaction() {
         updateTimerDisplay(elapsedTime);
 
         running = false;
-    } else if (!lightsOn) {
-        // Start the light sequence
+    } else if (!lightsOn && !sequenceActive) {
+        // Start the light sequence if no sequence is active
         startLightsSequence().catch(console.error);
     }
 }
@@ -105,3 +109,19 @@ document.body.addEventListener('keydown', (event) => {
         handleReaction();
     }
 });
+
+// Store and retrieve the best time from localStorage
+function saveBestTime() {
+    localStorage.setItem('bestTime', bestTime);
+}
+
+function loadBestTime() {
+    const savedBestTime = localStorage.getItem('bestTime');
+    if (savedBestTime) {
+        bestTime = parseFloat(savedBestTime);
+        updateBestTime();
+    }
+}
+
+window.addEventListener('beforeunload', saveBestTime);
+window.addEventListener('load', loadBestTime);
